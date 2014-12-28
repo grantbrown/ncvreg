@@ -1,0 +1,267 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+<style type="text/css">
+.knitr.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+},
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0em 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.rimage.left {
+  text-align: left;
+}
+.rimage.right {
+  text-align: right;
+}
+.rimage.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../favicon.ico">
+
+    <title>ncvreg parallel</title>
+    <link href="./bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="./css/report.css" rel="stylesheet">
+
+  </head>
+
+  <body>
+
+
+    <div id = "title-section" class = "container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h1>Parallelizing ncvreg</h1>
+          <h4>High Level Parallelization with R-Parallel</h4>
+          <h5>Last Updated:
+2014-12-27
+          </h5>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="container">
+      <h2>Test #1</h2>
+      </a>
+      <div class="row">
+        <div class = "col-sm-10 col-sm-offset-1">
+
+            <button class="btn btn-default code-button">Show/Hide Code Block</button>
+            <div class="code-and-output-block" style="display:none">
+<div class="chunk" id="unnamed-chunk-2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(knitr)</span>
+<span class="hl kwd">library</span><span class="hl std">(parallel)</span>
+<span class="hl kwd">library</span><span class="hl std">(ncvreg)</span>
+<span class="hl com"># Helpful package for printing html tables</span>
+<span class="hl kwd">suppressPackageStartupMessages</span><span class="hl std">(</span><span class="hl kwd">library</span><span class="hl std">(Gmisc,</span> <span class="hl kwc">quietly</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">,</span> <span class="hl kwc">verbose</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">))</span>
+<span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">123123</span><span class="hl std">)</span>
+
+<span class="hl std">n</span> <span class="hl kwb">=</span> <span class="hl num">1000</span>
+<span class="hl std">p</span> <span class="hl kwb">=</span> <span class="hl num">5000</span>
+<span class="hl std">nNonzeroBeta</span> <span class="hl kwb">=</span> <span class="hl num">200</span>
+
+
+<span class="hl std">generateData</span> <span class="hl kwb">&lt;-</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">n</span><span class="hl std">,</span><span class="hl kwc">p</span><span class="hl std">,</span><span class="hl kwc">nNonzeroBeta</span><span class="hl std">,</span> <span class="hl kwc">binomial</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">){</span>
+    <span class="hl std">trueBetaIndex</span> <span class="hl kwb">=</span> <span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">p)[</span><span class="hl kwd">order</span><span class="hl std">(</span><span class="hl kwd">runif</span><span class="hl std">(p,</span><span class="hl num">0</span><span class="hl std">,</span><span class="hl num">1</span><span class="hl std">))][</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nNonzeroBeta]</span>
+    <span class="hl std">X</span> <span class="hl kwb">=</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwd">rnorm</span><span class="hl std">(n</span><span class="hl opt">*</span><span class="hl std">p),</span> <span class="hl kwc">nrow</span><span class="hl std">=n,</span><span class="hl kwc">ncol</span><span class="hl std">=p)</span>
+    <span class="hl std">trueBeta</span> <span class="hl kwb">=</span> <span class="hl kwd">rep</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,p)</span>
+    <span class="hl std">trueBeta[trueBetaIndex]</span> <span class="hl kwb">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(nNonzeroBeta)</span>
+
+    <span class="hl kwa">if</span> <span class="hl std">(binomial){</span>
+        <span class="hl std">eEta</span> <span class="hl kwb">=</span> <span class="hl kwd">exp</span><span class="hl std">(X</span> <span class="hl opt">%*%</span> <span class="hl std">trueBeta)</span>
+        <span class="hl std">Y</span> <span class="hl kwb">=</span> <span class="hl kwd">rbinom</span><span class="hl std">(</span><span class="hl kwd">rep</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">, n),</span> <span class="hl num">1</span><span class="hl std">, eEta</span><span class="hl opt">/</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">+</span><span class="hl std">eEta))</span>
+    <span class="hl std">}</span>
+    <span class="hl kwa">else</span><span class="hl std">{</span>
+        <span class="hl std">Y</span> <span class="hl kwb">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(</span><span class="hl kwd">rep</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">, n),X</span> <span class="hl opt">%*%</span> <span class="hl std">trueBeta,</span> <span class="hl num">1</span><span class="hl std">)</span>
+    <span class="hl std">}</span>
+    <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">Y</span> <span class="hl std">= Y,</span>
+         <span class="hl kwc">X</span> <span class="hl std">= X,</span>
+         <span class="hl kwc">trueBeta</span> <span class="hl std">= trueBeta,</span>
+         <span class="hl kwc">trueBetaIndex</span> <span class="hl std">= trueBetaIndex)</span>
+<span class="hl std">}</span>
+
+<span class="hl std">runNormalSimInstance</span> <span class="hl kwb">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">seed</span><span class="hl std">){</span>
+    <span class="hl std">dat</span> <span class="hl kwb">=</span> <span class="hl kwd">generateData</span><span class="hl std">(n,p,nNonzeroBeta)</span>
+    <span class="hl com">#result = ncvreg(dat$X, dat$Y, family=&quot;gaussian&quot;, penalty = &quot;MCP&quot;)</span>
+    <span class="hl std">result</span> <span class="hl kwb">=</span> <span class="hl kwd">cv.ncvreg</span><span class="hl std">(dat</span><span class="hl opt">$</span><span class="hl std">X, dat</span><span class="hl opt">$</span><span class="hl std">Y,</span> <span class="hl kwc">family</span><span class="hl std">=</span><span class="hl str">&quot;gaussian&quot;</span><span class="hl std">,</span> <span class="hl kwc">penalty</span><span class="hl std">=</span><span class="hl str">&quot;MCP&quot;</span><span class="hl std">,</span> <span class="hl kwc">nfolds</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">seed</span><span class="hl std">=seed)</span>
+    <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">data</span><span class="hl std">=dat,</span><span class="hl kwc">result</span><span class="hl std">=result)</span>
+<span class="hl std">}</span>
+
+<span class="hl std">runParallelNormalSimInstance</span> <span class="hl kwb">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">seed</span><span class="hl std">){</span>
+    <span class="hl std">dat</span> <span class="hl kwb">=</span> <span class="hl kwd">generateData</span><span class="hl std">(n,p,nNonzeroBeta)</span>
+    <span class="hl std">cl</span> <span class="hl kwb">=</span> <span class="hl kwd">makeCluster</span><span class="hl std">(</span><span class="hl num">3</span><span class="hl std">)</span>
+    <span class="hl com">#result = ncvreg(dat$X, dat$Y, family=&quot;gaussian&quot;, penalty = &quot;MCP&quot;)</span>
+    <span class="hl std">result</span> <span class="hl kwb">=</span> <span class="hl kwd">pa.cv.ncvreg</span><span class="hl std">(cl, dat</span><span class="hl opt">$</span><span class="hl std">X, dat</span><span class="hl opt">$</span><span class="hl std">Y,</span> <span class="hl kwc">family</span><span class="hl std">=</span><span class="hl str">&quot;gaussian&quot;</span><span class="hl std">,</span> <span class="hl kwc">penalty</span><span class="hl std">=</span><span class="hl str">&quot;MCP&quot;</span><span class="hl std">,</span> <span class="hl kwc">nfolds</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">seed</span><span class="hl std">=seed)</span>
+    <span class="hl kwd">stopCluster</span><span class="hl std">(cl)</span>
+    <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">data</span><span class="hl std">=dat,</span><span class="hl kwc">result</span><span class="hl std">=result)</span>
+<span class="hl std">}</span>
+
+<span class="hl std">runNormalSimInstanceBinom</span> <span class="hl kwb">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">seed</span><span class="hl std">){</span>
+    <span class="hl std">dat</span> <span class="hl kwb">=</span> <span class="hl kwd">generateData</span><span class="hl std">(n,p,nNonzeroBeta,</span><span class="hl kwc">binomial</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">)</span>
+    <span class="hl com">#result = ncvreg(dat$X, dat$Y, family=&quot;gaussian&quot;, penalty = &quot;MCP&quot;)</span>
+    <span class="hl std">result</span> <span class="hl kwb">=</span> <span class="hl kwd">cv.ncvreg</span><span class="hl std">(dat</span><span class="hl opt">$</span><span class="hl std">X, dat</span><span class="hl opt">$</span><span class="hl std">Y,</span> <span class="hl kwc">family</span><span class="hl std">=</span><span class="hl str">&quot;binomial&quot;</span><span class="hl std">,</span> <span class="hl kwc">penalty</span><span class="hl std">=</span><span class="hl str">&quot;MCP&quot;</span><span class="hl std">,</span> <span class="hl kwc">nfolds</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">seed</span><span class="hl std">=seed)</span>
+    <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">data</span><span class="hl std">=dat,</span><span class="hl kwc">result</span><span class="hl std">=result)</span>
+<span class="hl std">}</span>
+
+<span class="hl std">runParallelNormalSimInstanceBinom</span> <span class="hl kwb">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">seed</span><span class="hl std">){</span>
+    <span class="hl std">dat</span> <span class="hl kwb">=</span> <span class="hl kwd">generateData</span><span class="hl std">(n,p,nNonzeroBeta,</span><span class="hl kwc">binomial</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">)</span>
+    <span class="hl std">cl</span> <span class="hl kwb">=</span> <span class="hl kwd">makeCluster</span><span class="hl std">(</span><span class="hl num">3</span><span class="hl std">)</span>
+    <span class="hl com">#result = ncvreg(dat$X, dat$Y, family=&quot;gaussian&quot;, penalty = &quot;MCP&quot;)</span>
+    <span class="hl std">result</span> <span class="hl kwb">=</span> <span class="hl kwd">pa.cv.ncvreg</span><span class="hl std">(cl, dat</span><span class="hl opt">$</span><span class="hl std">X, dat</span><span class="hl opt">$</span><span class="hl std">Y,</span> <span class="hl kwc">family</span><span class="hl std">=</span><span class="hl str">&quot;binomial&quot;</span><span class="hl std">,</span> <span class="hl kwc">penalty</span><span class="hl std">=</span><span class="hl str">&quot;MCP&quot;</span><span class="hl std">,</span> <span class="hl kwc">nfolds</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">seed</span><span class="hl std">=seed)</span>
+    <span class="hl kwd">stopCluster</span><span class="hl std">(cl)</span>
+    <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">data</span><span class="hl std">=dat,</span><span class="hl kwc">result</span><span class="hl std">=result)</span>
+<span class="hl std">}</span>
+
+
+<span class="hl std">time1</span> <span class="hl kwb">=</span> <span class="hl std">(</span><span class="hl kwd">system.time</span><span class="hl std">(</span><span class="hl kwd">runParallelNormalSimInstance</span><span class="hl std">(</span><span class="hl num">23124</span><span class="hl std">)))</span>
+<span class="hl std">time2</span> <span class="hl kwb">=</span> <span class="hl std">(</span><span class="hl kwd">system.time</span><span class="hl std">(</span><span class="hl kwd">runNormalSimInstance</span><span class="hl std">(</span><span class="hl num">23124</span><span class="hl std">)))</span>
+<span class="hl std">time3</span> <span class="hl kwb">=</span> <span class="hl std">(</span><span class="hl kwd">system.time</span><span class="hl std">(</span><span class="hl kwd">runParallelNormalSimInstanceBinom</span><span class="hl std">(</span><span class="hl num">23124</span><span class="hl std">)))</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: Algorithm failed to converge for some values of lambda
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">time4</span> <span class="hl kwb">=</span> <span class="hl std">(</span><span class="hl kwd">system.time</span><span class="hl std">(</span><span class="hl kwd">runNormalSimInstanceBinom</span><span class="hl std">(</span><span class="hl num">23124</span><span class="hl std">)))</span>
+</pre></div>
+<div class="warning"><pre class="knitr r">## Warning: Algorithm failed to converge for some values of lambda
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">resultsTable</span> <span class="hl kwb">=</span> <span class="hl kwd">round</span><span class="hl std">(</span><span class="hl kwd">rbind</span><span class="hl std">(time1, time2, time3, time4),</span> <span class="hl num">4</span><span class="hl std">)</span>
+<span class="hl kwd">rownames</span><span class="hl std">(resultsTable)</span> <span class="hl kwb">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;Parallel, Gaussian&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;Serial, Gaussian&quot;</span><span class="hl std">,</span>
+                           <span class="hl str">&quot;Parallel, Binomial&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;Serial, Binomial&quot;</span><span class="hl std">)</span>
+<span class="hl kwd">colnames</span><span class="hl std">(resultsTable)</span> <span class="hl kwb">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;User&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;System&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;Elapsed&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;User Child&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;System Child&quot;</span><span class="hl std">)</span>
+</pre></div>
+</div></div>
+            </div>
+        </div>
+      </div>
+      <div class="row">
+      
+        <div class ="col-sm-2 col-sm-offset-1">
+          <p>
+          This simulation involved 
+ 1000 
+          observations and 
+ 5000 
+          predictors, of which 
+ 200 
+          were truly nonzero. Both binomial and gaussian cases were simulated. 
+          </p>
+        </div>
+        <div class="col-sm-8">
+<div class="row"><div class="col-sm-2"></div><div class="col-sm-8">
+<table class='gmisc_table' style='border-collapse: collapse;' >
+	<thead>
+	<tr>
+		<th style='font-weight: 900; border-bottom: 1px solid grey; border-top: 4px double grey;'>Simulation Results</th>
+		<th style='border-bottom: 1px solid grey; border-top: 4px double grey; text-align: center;'>User</th>
+		<th style='border-bottom: 1px solid grey; border-top: 4px double grey; text-align: center;'>System</th>
+		<th style='border-bottom: 1px solid grey; border-top: 4px double grey; text-align: center;'>Elapsed</th>
+	</tr>
+	</thead><tbody>
+	<tr>
+		<td style='text-align: left;'>Parallel, Gaussian</td>
+		<td style='text-align: left;'>3.2</td>
+		<td style='text-align: center;'>0.127</td>
+		<td style='text-align: center;'>13.653</td>
+	</tr>
+	<tr>
+		<td style='text-align: left;'>Serial, Gaussian</td>
+		<td style='text-align: left;'>18.748</td>
+		<td style='text-align: center;'>0.261</td>
+		<td style='text-align: center;'>19.02</td>
+	</tr>
+	<tr>
+		<td style='text-align: left;'>Parallel, Binomial</td>
+		<td style='text-align: left;'>8.062</td>
+		<td style='text-align: center;'>0.139</td>
+		<td style='text-align: center;'>41.996</td>
+	</tr>
+	<tr>
+		<td style='border-bottom: 1px solid grey; text-align: left;'>Serial, Binomial</td>
+		<td style='border-bottom: 1px solid grey; text-align: left;'>65.596</td>
+		<td style='border-bottom: 1px solid grey; text-align: center;'>0.162</td>
+		<td style='border-bottom: 1px solid grey; text-align: center;'>65.704</td>
+	</tr>
+	</tbody>
+</table><br/>
+</div></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./bootstrap/js/bootstrap.min.js"></script>
+    <script src="./js/d3.v3.min.js"></script>
+    <script src="./js/topojson.v1.min.js"></script>
+    <script src='./js/handlebars.min.js' type='text/javascript'></script>
+    <script src="./js/angular.min.js"></script>
+    <script src="./js/datamaps.world.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function(){
+        $("table").addClass("table-striped");
+        $("table").addClass("table-bordered");
+      });
+
+      $(".code-button").click(function(){
+          $(this).next().animate({
+            opacity: 1,
+            left: "+=100",
+            height: "toggle"
+          }, 100, function() {
+          });
+      });
+
+    </script>
+  </body>
+</html>

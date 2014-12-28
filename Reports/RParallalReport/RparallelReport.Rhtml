@@ -1,0 +1,178 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../favicon.ico">
+
+    <title>ncvreg parallel</title>
+    <link href="./bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="./css/report.css" rel="stylesheet">
+
+  </head>
+
+  <body>
+
+
+    <div id = "title-section" class = "container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h1>Parallelizing ncvreg</h1>
+          <h4>High Level Parallelization with R-Parallel</h4>
+          <h5>Last Updated:
+                <!--begin.rcode echo=FALSE, results='asis'
+                cat(as.character(Sys.Date()))
+                end.rcode-->
+          </h5>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="container">
+      <h2>Test #1</h2>
+      </a>
+      <div class="row">
+        <div class = "col-sm-10 col-sm-offset-1">
+
+            <button class="btn btn-default code-button">Show/Hide Code Block</button>
+            <div class="code-and-output-block" style="display:none">
+                <!--begin.rcode
+                
+                library(knitr)
+                library(parallel)
+                library(ncvreg)
+                # Helpful package for printing html tables
+                suppressPackageStartupMessages(library(Gmisc, quietly=TRUE, verbose=FALSE))
+                set.seed(123123)
+
+                n = 1000
+                p = 5000
+                nNonzeroBeta = 200
+                
+
+                generateData <- function(n,p,nNonzeroBeta, binomial=FALSE){
+                    trueBetaIndex = (1:p)[order(runif(p,0,1))][1:nNonzeroBeta]
+                    X = matrix(rnorm(n*p), nrow=n,ncol=p)
+                    trueBeta = rep(0,p)
+                    trueBeta[trueBetaIndex] = rnorm(nNonzeroBeta)
+
+                    if (binomial){
+                        eEta = exp(X %*% trueBeta)
+                        Y = rbinom(rep(1, n), 1, eEta/(1+eEta))
+                    }
+                    else{
+                        Y = rnorm(rep(1, n),X %*% trueBeta, 1)
+                    }
+                    list(Y = Y,
+                         X = X,
+                         trueBeta = trueBeta,
+                         trueBetaIndex = trueBetaIndex)
+                }
+
+                runNormalSimInstance = function(seed){
+                    dat = generateData(n,p,nNonzeroBeta)
+                    #result = ncvreg(dat$X, dat$Y, family="gaussian", penalty = "MCP")
+                    result = cv.ncvreg(dat$X, dat$Y, family="gaussian", penalty="MCP", nfolds = 10, seed=seed)
+                    list(data=dat,result=result)
+                }
+
+                runParallelNormalSimInstance = function(seed){
+                    dat = generateData(n,p,nNonzeroBeta)
+                    cl = makeCluster(3)
+                    #result = ncvreg(dat$X, dat$Y, family="gaussian", penalty = "MCP")
+                    result = pa.cv.ncvreg(cl, dat$X, dat$Y, family="gaussian", penalty="MCP", nfolds = 10, seed=seed)
+                    stopCluster(cl)
+                    list(data=dat,result=result)
+                }
+
+                runNormalSimInstanceBinom = function(seed){
+                    dat = generateData(n,p,nNonzeroBeta,binomial=TRUE)
+                    #result = ncvreg(dat$X, dat$Y, family="gaussian", penalty = "MCP")
+                    result = cv.ncvreg(dat$X, dat$Y, family="binomial", penalty="MCP", nfolds = 10, seed=seed)
+                    list(data=dat,result=result)
+                }
+
+                runParallelNormalSimInstanceBinom = function(seed){
+                    dat = generateData(n,p,nNonzeroBeta,binomial=TRUE)
+                    cl = makeCluster(3)
+                    #result = ncvreg(dat$X, dat$Y, family="gaussian", penalty = "MCP")
+                    result = pa.cv.ncvreg(cl, dat$X, dat$Y, family="binomial", penalty="MCP", nfolds = 10, seed=seed)
+                    stopCluster(cl)
+                    list(data=dat,result=result)
+                }
+
+
+                time1 = (system.time(runParallelNormalSimInstance(23124)))
+                time2 = (system.time(runNormalSimInstance(23124)))
+                time3 = (system.time(runParallelNormalSimInstanceBinom(23124)))
+                time4 = (system.time(runNormalSimInstanceBinom(23124)))
+
+                resultsTable = round(rbind(time1, time2, time3, time4), 4)
+                rownames(resultsTable) = c("Parallel, Gaussian", "Serial, Gaussian",
+                                           "Parallel, Binomial", "Serial, Binomial")
+                colnames(resultsTable) = c("User", "System", "Elapsed", "User Child", "System Child")
+
+                end.rcode-->
+            </div>
+        </div>
+      </div>
+      <div class="row">
+      
+        <div class ="col-sm-2 col-sm-offset-1">
+          <p>
+          This simulation involved 
+          <!--begin.rcode results='asis', echo=FALSE
+            cat(paste(" ", n, " ", sep = ""))
+          end.rcode-->
+          observations and 
+          <!--begin.rcode results='asis', echo=FALSE
+            cat(paste(" ", p, " ", sep = ""))
+          end.rcode-->
+          predictors, of which 
+          <!--begin.rcode results='asis', echo=FALSE
+            cat(paste(" ", nNonzeroBeta, " ", sep = ""))
+          end.rcode-->
+          were truly nonzero. Both binomial and gaussian cases were simulated. 
+          </p>
+        </div>
+        <div class="col-sm-8">
+              <!--begin.rcode results='asis', echo=FALSE     
+                cat("<div class=\"row\"><div class=\"col-sm-2\"></div><div class=\"col-sm-8\">\n")
+                cat(htmlTable(resultsTable[,1:3], title = "Simulation Results"))
+                cat("<br/>\n")
+                cat("</div></div>\n")
+              end.rcode-->
+        </div>
+      </div>
+    </div>
+  </div>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./bootstrap/js/bootstrap.min.js"></script>
+    <script src="./js/d3.v3.min.js"></script>
+    <script src="./js/topojson.v1.min.js"></script>
+    <script src='./js/handlebars.min.js' type='text/javascript'></script>
+    <script src="./js/angular.min.js"></script>
+    <script src="./js/datamaps.world.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function(){
+        $("table").addClass("table-striped");
+        $("table").addClass("table-bordered");
+      });
+
+      $(".code-button").click(function(){
+          $(this).next().animate({
+            opacity: 1,
+            left: "+=100",
+            height: "toggle"
+          }, 100, function() {
+          });
+      });
+
+    </script>
+  </body>
+</html>
